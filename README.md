@@ -128,26 +128,7 @@ Script Output (Streamed to chat in real-time)
 
 ---
 
- 
----
-
-## 📦 Requirements
-
-```
-streamlit>=1.35.0
-pandas>=2.0.0
-numpy>=1.24.0
-yfinance>=0.2.40
-plotly>=5.22.0
-requests>=2.31.0
-scikit-learn>=1.4.0
-python-dotenv>=1.0.1
-ta>=0.11.0
-statsmodels>=0.14.0
-```
-
----
-
+  
 ## 📄 License
 
 This project is submitted as an open-source hackathon entry. Free to use and extend for educational and research purposes.
