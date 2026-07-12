@@ -248,6 +248,33 @@ def inject_custom_css():
             padding: 15px;
             margin-top: 15px;
         }
+        
+        /* Custom Scrollbar Styling for all pages and modals */
+        ::-webkit-scrollbar {
+            width: 10px !important;
+            height: 10px !important;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6) !important;
+            border-radius: 6px !important;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6366f1 !important; /* Beautiful Indigo Scrollbar */
+            border-radius: 6px !important;
+            border: 2px solid rgba(15, 23, 42, 0.6) !important;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f46e5 !important;
+        }
+        
+        /* Make Streamlit modals (like screen recording preview) scrollbar highly visible */
+        [data-testid="stModal"] {
+            overflow-y: auto !important;
+        }
+        [data-testid="stModal"] ::-webkit-scrollbar-thumb {
+            background: #f59e0b !important; /* Bright orange/yellow scrollbar specifically inside the modal to draw attention! */
+            border: 1px solid rgba(15, 23, 42, 0.8) !important;
+        }
     </style>
     """
     st.markdown(css_content, unsafe_allow_html=True)
