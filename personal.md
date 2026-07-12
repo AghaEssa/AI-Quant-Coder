@@ -47,6 +47,9 @@ I’m passionate about solving real-world problems using technology. With hands-
 - *AI Quant-Coder - Quantitative Trading RAG Scripting Framework* – Python, Streamlit, Statsmodels (ARIMA), yfinance, Llama-3 (Groq/vLLM), TF-IDF vector RAG, python-docx
   📈 End-to-end framework combining price statistical forecasting (ARIMA) with a custom Vector RAG codebase to generate and backtest customized algorithmic trading scripts. Accelerated for ROCm on AMD GPU Cloud.  
 
+- *AI-Based Academic Information Extraction & Model Comparison* – Python, GPT-4o, Gemini, Claude, Cohere, LLaMA, pandas, scikit-learn, matplotlib
+  🔍 Automated pipeline designed to extract structured academic metadata (Problem Statements, Methodologies, Keywords) from research abstracts and evaluate LLM performance metrics against human-annotated ground truth.
+
 - *LabOS Management - AI Diagnostic Dashboard* – PHP, Laravel, MySQL, Tailwind CSS, AI Agents  
   🧪 Web-based lab system with secure access, automated digital workflows, and AI-powered diagnostic reporting.  
 
