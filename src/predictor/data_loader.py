@@ -1,6 +1,14 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import requests
+
+def get_custom_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    })
+    return session
 
 def generate_mock_stock_data(ticker: str, days: int = 365) -> pd.DataFrame:
     """
@@ -32,8 +40,9 @@ def fetch_stock_data(ticker: str, period: str = "1y", interval: str = "1d") -> p
     Fetch historical stock data using yfinance. Falls back to mock data if offline/unreachable.
     """
     try:
-        stock = yf.Ticker(ticker)
-        df = stock.history(period=period, interval=interval)
+        session = get_custom_session()
+        stock = yf.Ticker(ticker, session=session)
+        df = stock.history(period=period, interval=interval, timeout=10.0)
         if df.empty:
             raise ValueError(f"No yfinance data returned for ticker '{ticker}'")
         # Remove timezone offset if present to prevent tz-aware comparison error

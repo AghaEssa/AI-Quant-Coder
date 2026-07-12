@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from sklearn.linear_model import Ridge
+import requests
 
 # Try importing statsmodels ARIMA
 try:
@@ -10,6 +11,13 @@ try:
     HAS_STATSMODELS = True
 except ImportError:
     HAS_STATSMODELS = False
+
+def get_custom_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    })
+    return session
 
 def fetch_ten_years_data(ticker: str) -> pd.DataFrame:
     """
@@ -21,8 +29,9 @@ def fetch_ten_years_data(ticker: str) -> pd.DataFrame:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=10 * 365)
         
-        stock = yf.Ticker(ticker)
-        df = stock.history(start=start_date, end=end_date, interval="1d")
+        session = get_custom_session()
+        stock = yf.Ticker(ticker, session=session)
+        df = stock.history(start=start_date, end=end_date, interval="1d", timeout=10.0)
         
         if df.empty:
             raise ValueError(f"No yfinance data returned for ticker '{ticker}'")
