@@ -293,6 +293,12 @@ try:
 except Exception:
     prediction_context = "No prediction indicators loaded."
 
+is_generating = False
+if "active_threads" in st.session_state:
+    curr_thread = st.session_state.active_threads.get(st.session_state.active_chat_id)
+    if curr_thread and curr_thread.is_alive():
+        is_generating = True
+
 # ==========================================
 # RENDER PAGE: 📈 Market Predictor (Split Screen)
 # ==========================================
@@ -490,7 +496,7 @@ if nav_choice == "📈 Market Predictor":
                                     st.code(s["code"], language="python")
                     
             # Export / Download Buttons inside Right Panel
-            if st.session_state.chat_history:
+            if st.session_state.chat_history and not is_generating:
                 from src.utils.helpers import export_chat_to_docx, export_chat_to_markdown
                 exp_col1, exp_col2 = st.columns(2)
                 with exp_col1:
@@ -520,7 +526,7 @@ if nav_choice == "📈 Market Predictor":
                     except Exception as e:
                         st.error(f"MD export failed: {e}")
                         
-            user_input_dash = st.chat_input("Ask for trading code scripts...", key="chat_input_dash")
+            user_input_dash = st.chat_input("Ask for trading code scripts...", key="chat_input_dash", disabled=is_generating)
             if qp_query:
                 user_input_dash = qp_query
                 
@@ -725,7 +731,7 @@ elif nav_choice == "💬 AI Code Assistant":
                 )
         
         # Export / Download Buttons inside Dedicated Chat Page
-        if st.session_state.chat_history:
+        if st.session_state.chat_history and not is_generating:
             from src.utils.helpers import export_chat_to_docx, export_chat_to_markdown
             exp_col1, exp_col2 = st.columns(2)
             with exp_col1:
@@ -767,7 +773,7 @@ elif nav_choice == "💬 AI Code Assistant":
             if st.button("RSI Strategy Structure", key="ded_preset3", use_container_width=True):
                 preset_ded_query = f"Write a complete vectorized backtest script in Python for a simple RSI crossover strategy on '{ticker_symbol}'."
                 
-        user_input_ded = st.chat_input("Ask about quantitative code, strategy formulas, or backtesting scripts...", key="chat_input_dedicated")
+        user_input_ded = st.chat_input("Ask about quantitative code, strategy formulas, or backtesting scripts...", key="chat_input_dedicated", disabled=is_generating)
         if preset_ded_query:
             user_input_ded = preset_ded_query
             
