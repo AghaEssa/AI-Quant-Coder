@@ -292,81 +292,218 @@ def export_chat_to_docx(chat_history, ticker, prediction_context=""):
     import docx
     from docx.shared import Inches, Pt, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
     import io
     from datetime import datetime
+    import re
     
+    # Helper to clean text of emojis and markdown hashes to prevent square box glyphs
+    def clean_text(text):
+        cleaned = "".join(c for c in text if 31 < ord(c) < 127 or c in ('\n', '\r', '\t'))
+        cleaned = cleaned.replace("### ", "").replace("## ", "").replace("# ", "")
+        return cleaned.strip()
+        
+    def set_cell_background(cell, fill_hex):
+        tcPr = cell._element.get_or_add_tcPr()
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:val'), 'clear')
+        shd.set(qn('w:color'), 'auto')
+        shd.set(qn('w:fill'), fill_hex)
+        tcPr.append(shd)
+        
+    def set_cell_margins(cell, top=140, bottom=140, left=180, right=180):
+        tcPr = cell._element.get_or_add_tcPr()
+        tcMar = OxmlElement('w:tcMar')
+        for m, val in [('w:top', top), ('w:bottom', bottom), ('w:left', left), ('w:right', right)]:
+            node = OxmlElement(m)
+            node.set(qn('w:w'), str(val))
+            node.set(qn('w:type'), 'dxa')
+            tcMar.append(node)
+        tcPr.append(tcMar)
+        
+    def set_cell_left_border(cell, color_hex, size="24"):
+        tcPr = cell._element.get_or_add_tcPr()
+        tcBorders = OxmlElement('w:tcBorders')
+        
+        left = OxmlElement('w:left')
+        left.set(qn('w:val'), 'single')
+        left.set(qn('w:sz'), size)
+        left.set(qn('w:space'), '0')
+        left.set(qn('w:color'), color_hex)
+        tcBorders.append(left)
+        
+        for b_type in ['top', 'bottom', 'right']:
+            b = OxmlElement(f'w:{b_type}')
+            b.set(qn('w:val'), 'none')
+            tcBorders.append(b)
+            
+        tcPr.append(tcBorders)
+
+    def add_markdown_line(container, line_text):
+        cleaned_line = clean_text(line_text)
+        if not cleaned_line:
+            return
+        p = container.add_paragraph()
+        p.paragraph_format.space_after = Pt(4)
+        
+        # Split by bold format **
+        parts = re.split(r'(\*\*.*?\*\*)', cleaned_line)
+        for part in parts:
+            if part.startswith('**') and part.endswith('**'):
+                run = p.add_run(part[2:-2])
+                run.bold = True
+            else:
+                # Check for inline code `
+                subparts = re.split(r'(`.*?`)', part)
+                for subpart in subparts:
+                    if subpart.startswith('`') and subpart.endswith('`'):
+                        run = p.add_run(subpart[1:-1])
+                        run.font.name = 'Consolas'
+                        run.font.size = Pt(9.5)
+                        run.font.bold = True
+                        run.font.color.rgb = RGBColor(79, 70, 229) # Indigo
+                    else:
+                        p.add_run(subpart)
+
+    def create_code_card(container, code_text):
+        table = container.add_table(rows=1, cols=1)
+        table.alignment = docx.enum.table.WD_TABLE_ALIGNMENT.CENTER
+        cell = table.cell(0, 0)
+        set_cell_background(cell, "F8FAFC")
+        set_cell_margins(cell, top=140, bottom=140, left=180, right=180)
+        set_cell_left_border(cell, "94A3B8", size="24")
+        
+        p = cell.paragraphs[0]
+        p.paragraph_format.space_after = Pt(0)
+        run = p.add_run(code_text.strip())
+        run.font.name = 'Consolas'
+        run.font.size = Pt(9.5)
+        run.font.color.rgb = RGBColor(15, 23, 42)
+
+    def render_formatted_text(container, text):
+        parts = re.split(r'(```[\s\S]*?```)', text)
+        for part in parts:
+            if part.startswith('```') and part.endswith('```'):
+                # Extract code contents
+                code_lines = part.split('\n')
+                code_content = '\n'.join(code_lines[1:-1])
+                create_code_card(container, code_content)
+            else:
+                lines = part.split('\n')
+                for line in lines:
+                    add_markdown_line(container, line)
+
     doc = docx.Document()
     
-    # Page setup
+    # Page Margins
     for section in doc.sections:
         section.top_margin = Inches(1)
         section.bottom_margin = Inches(1)
         section.left_margin = Inches(1)
         section.right_margin = Inches(1)
         
-    # Styles
+    # Base styling
     style_normal = doc.styles['Normal']
     style_normal.font.name = 'Arial'
-    style_normal.font.size = Pt(11)
+    style_normal.font.size = Pt(10.5)
     
     # Title
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_run = title.add_run("AI Quant-Coder Chat & Strategy Report")
     title_run.font.name = 'Arial'
-    title_run.font.size = Pt(20)
+    title_run.font.size = Pt(18)
     title_run.font.bold = True
-    title_run.font.color.rgb = RGBColor(99, 102, 241) # Theme Indigo
+    title_run.font.color.rgb = RGBColor(79, 70, 229)
     
-    # Metadata
-    meta = doc.add_paragraph()
-    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    meta_run = meta.add_run(f"Target Asset: {ticker}  |  Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    meta_run.font.size = Pt(10)
-    meta_run.italic = True
+    # Subtitle Metadata
+    subtitle = doc.add_paragraph()
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub_run = subtitle.add_run(f"Target Asset: {ticker}  |  Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    sub_run.font.size = Pt(9.5)
+    sub_run.italic = True
+    sub_run.font.color.rgb = RGBColor(100, 116, 139)
     
-    # Context section
+    # Market Context Card
     if prediction_context:
-        doc.add_heading("📊 Live Market Context", level=1)
-        p_ctx = doc.add_paragraph()
-        p_ctx.add_run(prediction_context.strip())
+        doc.add_heading("Live Market Context", level=1)
+        doc.paragraphs[-1].runs[0].font.color.rgb = RGBColor(79, 70, 229)
+        doc.paragraphs[-1].runs[0].font.size = Pt(13)
         
-    # Chat History
-    doc.add_heading("💬 Conversation & Strategy Details", level=1)
-    for msg in chat_history:
-        role_name = "User" if msg["role"] == "user" else "AI Assistant"
-        p_msg = doc.add_paragraph()
-        run_role = p_msg.add_run(f"[{role_name}]: ")
-        run_role.bold = True
-        if msg["role"] == "user":
-            run_role.font.color.rgb = RGBColor(239, 68, 68) # Red-orange
-        else:
-            run_role.font.color.rgb = RGBColor(16, 185, 129) # Green
+        table_ctx = doc.add_table(rows=1, cols=1)
+        cell_ctx = table_ctx.cell(0, 0)
+        set_cell_background(cell_ctx, "F8FAFC")
+        set_cell_margins(cell_ctx, top=140, bottom=140, left=180, right=180)
+        set_cell_left_border(cell_ctx, "6366F1", size="24")
+        
+        ctx_lines = prediction_context.split('\n')
+        for line in ctx_lines:
+            add_markdown_line(cell_ctx, line)
             
-        p_msg.add_run(msg["content"])
+    doc.add_paragraph() # Spacing
+    
+    # Conversation details
+    doc.add_heading("Conversation & Strategy Details", level=1)
+    doc.paragraphs[-1].runs[0].font.color.rgb = RGBColor(79, 70, 229)
+    doc.paragraphs[-1].runs[0].font.size = Pt(13)
+    
+    for msg in chat_history:
+        is_user = (msg["role"] == "user")
+        role_label = "User Request" if is_user else "Quant-Coder Strategy & Code"
         
-        # Sources if present
-        if msg.get("sources"):
-            doc.add_heading("🔍 Retrieved Code Templates Used", level=2)
+        # Message bubble card
+        table_msg = doc.add_table(rows=1, cols=1)
+        cell_msg = table_msg.cell(0, 0)
+        set_cell_margins(cell_msg, top=140, bottom=140, left=200, right=200)
+        
+        if is_user:
+            set_cell_background(cell_msg, "FFF7ED") # light orange
+            set_cell_left_border(cell_msg, "F97316", size="24")
+            header_color = RGBColor(234, 88, 12)
+        else:
+            set_cell_background(cell_msg, "EEF2FF") # light blue/indigo
+            set_cell_left_border(cell_msg, "4F46E5", size="24")
+            header_color = RGBColor(55, 48, 163)
+            
+        p_hdr = cell_msg.paragraphs[0]
+        p_hdr.paragraph_format.space_after = Pt(6)
+        run_hdr = p_hdr.add_run(role_label)
+        run_hdr.font.bold = True
+        run_hdr.font.size = Pt(11)
+        run_hdr.font.color.rgb = header_color
+        
+        # Render contents (which parses nested markdown and code blocks!)
+        render_formatted_text(cell_msg, msg["content"])
+        
+        # If assistant has retrieved templates, append them inside the message card!
+        if not is_user and msg.get("sources"):
+            p_src_title = cell_msg.add_paragraph()
+            p_src_title.paragraph_format.space_before = Pt(8)
+            p_src_title.paragraph_format.space_after = Pt(4)
+            run_src_title = p_src_title.add_run("Retrieved Code Templates Used:")
+            run_src_title.bold = True
+            run_src_title.font.size = Pt(10)
+            run_src_title.font.color.rgb = RGBColor(79, 70, 229)
+            
             for s in msg["sources"]:
-                p_src = doc.add_paragraph()
-                p_src.add_run(f"File: {s['file']} (Relevance Score: {s['score']:.2f})\n").italic = True
-                # Code block styling
-                code_table = doc.add_table(rows=1, cols=1)
-                code_table.style = 'Light Shading Accent 1'
-                cell = code_table.cell(0, 0)
-                cell.text = s["code"]
-                cell.paragraphs[0].style.font.name = 'Consolas'
-                cell.paragraphs[0].style.font.size = Pt(9.5)
+                p_src_info = cell_msg.add_paragraph()
+                p_src_info.paragraph_format.space_after = Pt(2)
+                run_src_info = p_src_info.add_run(f"- File: {s['file']} (Relevance: {s['score']:.2f})")
+                run_src_info.italic = True
+                run_src_info.font.size = Pt(9)
+                create_code_card(cell_msg, s["code"])
                 
+        doc.add_paragraph() # spacing between messages
+        
     # Footer disclaimer
     doc.add_paragraph("\n---\nReport compiled automatically by AI Quant-Coder. AMD Developer Hackathon ACT II.")
     
-    # Save to BytesIO so Streamlit can download it in-memory
     file_stream = io.BytesIO()
     doc.save(file_stream)
     file_stream.seek(0)
     return file_stream
+
 
 def export_chat_to_markdown(chat_history, ticker, prediction_context=""):
     import io
