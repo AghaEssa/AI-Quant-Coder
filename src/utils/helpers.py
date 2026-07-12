@@ -287,3 +287,110 @@ def inject_custom_css():
         """,
         unsafe_allow_html=True
     )
+
+def export_chat_to_docx(chat_history, ticker, prediction_context=""):
+    import docx
+    from docx.shared import Inches, Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    import io
+    from datetime import datetime
+    
+    doc = docx.Document()
+    
+    # Page setup
+    for section in doc.sections:
+        section.top_margin = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
+        
+    # Styles
+    style_normal = doc.styles['Normal']
+    style_normal.font.name = 'Arial'
+    style_normal.font.size = Pt(11)
+    
+    # Title
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_run = title.add_run("AI Quant-Coder Chat & Strategy Report")
+    title_run.font.name = 'Arial'
+    title_run.font.size = Pt(20)
+    title_run.font.bold = True
+    title_run.font.color.rgb = RGBColor(99, 102, 241) # Theme Indigo
+    
+    # Metadata
+    meta = doc.add_paragraph()
+    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    meta_run = meta.add_run(f"Target Asset: {ticker}  |  Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    meta_run.font.size = Pt(10)
+    meta_run.italic = True
+    
+    # Context section
+    if prediction_context:
+        doc.add_heading("📊 Live Market Context", level=1)
+        p_ctx = doc.add_paragraph()
+        p_ctx.add_run(prediction_context.strip())
+        
+    # Chat History
+    doc.add_heading("💬 Conversation & Strategy Details", level=1)
+    for msg in chat_history:
+        role_name = "User" if msg["role"] == "user" else "AI Assistant"
+        p_msg = doc.add_paragraph()
+        run_role = p_msg.add_run(f"[{role_name}]: ")
+        run_role.bold = True
+        if msg["role"] == "user":
+            run_role.font.color.rgb = RGBColor(239, 68, 68) # Red-orange
+        else:
+            run_role.font.color.rgb = RGBColor(16, 185, 129) # Green
+            
+        p_msg.add_run(msg["content"])
+        
+        # Sources if present
+        if msg.get("sources"):
+            doc.add_heading("🔍 Retrieved Code Templates Used", level=2)
+            for s in msg["sources"]:
+                p_src = doc.add_paragraph()
+                p_src.add_run(f"File: {s['file']} (Relevance Score: {s['score']:.2f})\n").italic = True
+                # Code block styling
+                code_table = doc.add_table(rows=1, cols=1)
+                code_table.style = 'Light Shading Accent 1'
+                cell = code_table.cell(0, 0)
+                cell.text = s["code"]
+                cell.paragraphs[0].style.font.name = 'Consolas'
+                cell.paragraphs[0].style.font.size = Pt(9.5)
+                
+    # Footer disclaimer
+    doc.add_paragraph("\n---\nReport compiled automatically by AI Quant-Coder. AMD Developer Hackathon ACT II.")
+    
+    # Save to BytesIO so Streamlit can download it in-memory
+    file_stream = io.BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+    return file_stream
+
+def export_chat_to_markdown(chat_history, ticker, prediction_context=""):
+    import io
+    from datetime import datetime
+    md = f"# AI Quant-Coder Chat & Strategy Report\n\n"
+    md += f"**Target Asset:** {ticker}  \n"
+    md += f"**Generated on:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n\n"
+    
+    if prediction_context:
+        md += f"## 📊 Live Market Context\n"
+        md += f"```\n{prediction_context.strip()}\n```\n\n"
+        
+    md += f"## 💬 Conversation Details\n\n"
+    for msg in chat_history:
+        role_name = "User" if msg["role"] == "user" else "AI Assistant"
+        md += f"### 👤 {role_name}\n"
+        md += f"{msg['content']}\n\n"
+        
+        if msg.get("sources"):
+            md += f"#### 🔍 Retrieved Code Templates Used\n"
+            for s in msg["sources"]:
+                md += f"- **File:** `{s['file']}` (Score: {s['score']:.2f})\n"
+                md += f"```python\n{s['code']}\n```\n\n"
+                
+    file_stream = io.BytesIO(md.encode('utf-8'))
+    file_stream.seek(0)
+    return file_stream

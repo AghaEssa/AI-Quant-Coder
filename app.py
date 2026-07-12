@@ -270,6 +270,28 @@ except Exception as e:
 
 engine_name = pred_df['Forecast_Engine'].iloc[0] if 'Forecast_Engine' in pred_df.columns else "ARIMA"
 
+# Compile financial predictor context globally for threads and reports
+try:
+    pred_last_row = df.iloc[-1]
+    pred_prev_close = df.iloc[-2]['Close']
+    pred_pct_change = ((pred_last_row['Close'] - pred_prev_close) / pred_prev_close) * 100
+    pred_rsi_val = pred_last_row['RSI_14']
+    pred_rsi_status = "Oversold" if pred_rsi_val < 30 else "Overbought" if pred_rsi_val > 70 else "Neutral"
+    pred_sma_diff = pred_last_row['SMA_20'] - pred_last_row['SMA_50']
+    pred_sma_trend = "Bullish Crossover (SMA 20 > 50)" if pred_sma_diff > 0 else "Bearish Crossover (SMA 20 < 50)"
+    pred_final_pred = pred_df.iloc[-1]['Predicted_Close']
+    pred_direction = "UP" if pred_final_pred > pred_last_row['Close'] else "DOWN"
+    
+    prediction_context = f"""
+- Stock Ticker Symbol: {ticker_symbol}
+- Current Market Close Price: ${pred_last_row['Close']:.2f} ({pred_pct_change:+.2f}%)
+- Relative Strength Index (RSI 14D): {pred_rsi_val:.1f} ({pred_rsi_status})
+- Simple Moving Average (SMA) Trend: {pred_sma_trend}
+- 30-Day Predicted Forecast Close: ${pred_final_pred:.2f} (predicted trend: {pred_direction})
+- Forecasting Model: {engine_name}
+"""
+except Exception:
+    prediction_context = "No prediction indicators loaded."
 
 # ==========================================
 # RENDER PAGE: 📈 Market Predictor (Split Screen)
@@ -466,6 +488,37 @@ if nav_choice == "📈 Market Predictor":
                                 for s in msg["sources"]:
                                     st.markdown(f"📄 **{s['file']}** (Score: {s['score']:.2f})")
                                     st.code(s["code"], language="python")
+                    
+            # Export / Download Buttons inside Right Panel
+            if st.session_state.chat_history:
+                from src.utils.helpers import export_chat_to_docx, export_chat_to_markdown
+                exp_col1, exp_col2 = st.columns(2)
+                with exp_col1:
+                    try:
+                        docx_file = export_chat_to_docx(st.session_state.chat_history, ticker_symbol, prediction_context)
+                        st.download_button(
+                            label="📥 Download Report (.docx)",
+                            data=docx_file,
+                            file_name=f"Quant_Coder_Report_{ticker_symbol}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True,
+                            key="download_docx_dash"
+                        )
+                    except Exception as e:
+                        st.error(f"Docx export failed: {e}")
+                with exp_col2:
+                    try:
+                        md_file = export_chat_to_markdown(st.session_state.chat_history, ticker_symbol, prediction_context)
+                        st.download_button(
+                            label="📄 Download Raw Markdown (.md)",
+                            data=md_file,
+                            file_name=f"Quant_Coder_Report_{ticker_symbol}.md",
+                            mime="text/markdown",
+                            use_container_width=True,
+                            key="download_md_dash"
+                        )
+                    except Exception as e:
+                        st.error(f"MD export failed: {e}")
                         
             user_input_dash = st.chat_input("Ask for trading code scripts...", key="chat_input_dash")
             if qp_query:
@@ -504,29 +557,6 @@ if nav_choice == "📈 Market Predictor":
                 # 3. Spawn background thread to query LLM and stream chunks
                 history_copy = list(st.session_state.chat_history[:-2]) # Exclude query & placeholder
                 chat_list_ref = st.session_state.chat_history
-                
-                # Compile financial predictor context
-                try:
-                    pred_last_row = df.iloc[-1]
-                    pred_prev_close = df.iloc[-2]['Close']
-                    pred_pct_change = ((pred_last_row['Close'] - pred_prev_close) / pred_prev_close) * 100
-                    pred_rsi_val = pred_last_row['RSI_14']
-                    pred_rsi_status = "Oversold" if pred_rsi_val < 30 else "Overbought" if pred_rsi_val > 70 else "Neutral"
-                    pred_sma_diff = pred_last_row['SMA_20'] - pred_last_row['SMA_50']
-                    pred_sma_trend = "Bullish Crossover (SMA 20 > 50)" if pred_sma_diff > 0 else "Bearish Crossover (SMA 20 < 50)"
-                    pred_final_pred = pred_df.iloc[-1]['Predicted_Close']
-                    pred_direction = "UP" if pred_final_pred > pred_last_row['Close'] else "DOWN"
-                    
-                    prediction_context = f"""
-- Stock Ticker Symbol: {ticker_symbol}
-- Current Market Close Price: ${pred_last_row['Close']:.2f} ({pred_pct_change:+.2f}%)
-- Relative Strength Index (RSI 14D): {pred_rsi_val:.1f} ({pred_rsi_status})
-- Simple Moving Average (SMA) Trend: {pred_sma_trend}
-- 30-Day Predicted Forecast Close: ${pred_final_pred:.2f} (predicted trend: {pred_direction})
-- Forecasting Model: {engine_name}
-"""
-                except Exception:
-                    prediction_context = "No prediction indicators loaded."
                 
                 t = threading.Thread(
                     target=background_stream_worker,
@@ -671,7 +701,6 @@ elif nav_choice == "💬 AI Code Assistant":
         chat_main_col = st.container()
         
     with chat_main_col:
-        pass
         # Full width chatbot
         chat_box_ded = st.container(height=450)
         with chat_box_ded:
@@ -694,6 +723,37 @@ elif nav_choice == "💬 AI Code Assistant":
                     """, 
                     unsafe_allow_html=True
                 )
+        
+        # Export / Download Buttons inside Dedicated Chat Page
+        if st.session_state.chat_history:
+            from src.utils.helpers import export_chat_to_docx, export_chat_to_markdown
+            exp_col1, exp_col2 = st.columns(2)
+            with exp_col1:
+                try:
+                    docx_file = export_chat_to_docx(st.session_state.chat_history, ticker_symbol, prediction_context)
+                    st.download_button(
+                        label="📥 Download Strategy Report (.docx)",
+                        data=docx_file,
+                        file_name=f"Quant_Coder_Report_{ticker_symbol}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                        key="download_docx_ded"
+                    )
+                except Exception as e:
+                    st.error(f"Docx export failed: {e}")
+            with exp_col2:
+                try:
+                    md_file = export_chat_to_markdown(st.session_state.chat_history, ticker_symbol, prediction_context)
+                    st.download_button(
+                        label="📄 Download Raw Markdown (.md)",
+                        data=md_file,
+                        file_name=f"Quant_Coder_Report_{ticker_symbol}.md",
+                        mime="text/markdown",
+                        use_container_width=True,
+                        key="download_md_ded"
+                    )
+                except Exception as e:
+                    st.error(f"MD export failed: {e}")
                 
         preset_ded_query = ""
         ded_col1, ded_col2, ded_col3 = st.columns(3)
@@ -744,29 +804,6 @@ elif nav_choice == "💬 AI Code Assistant":
             # 3. Spawn background thread to query LLM and stream chunks
             history_copy = list(st.session_state.chat_history[:-2]) # Exclude query & placeholder
             chat_list_ref = st.session_state.chat_history
-            
-            # Compile financial predictor context
-            try:
-                pred_last_row = df.iloc[-1]
-                pred_prev_close = df.iloc[-2]['Close']
-                pred_pct_change = ((pred_last_row['Close'] - pred_prev_close) / pred_prev_close) * 100
-                pred_rsi_val = pred_last_row['RSI_14']
-                pred_rsi_status = "Oversold" if pred_rsi_val < 30 else "Overbought" if pred_rsi_val > 70 else "Neutral"
-                pred_sma_diff = pred_last_row['SMA_20'] - pred_last_row['SMA_50']
-                pred_sma_trend = "Bullish Crossover (SMA 20 > 50)" if pred_sma_diff > 0 else "Bearish Crossover (SMA 20 < 50)"
-                pred_final_pred = pred_df.iloc[-1]['Predicted_Close']
-                pred_direction = "UP" if pred_final_pred > pred_last_row['Close'] else "DOWN"
-                
-                prediction_context = f"""
-- Stock Ticker Symbol: {ticker_symbol}
-- Current Market Close Price: ${pred_last_row['Close']:.2f} ({pred_pct_change:+.2f}%)
-- Relative Strength Index (RSI 14D): {pred_rsi_val:.1f} ({pred_rsi_status})
-- Simple Moving Average (SMA) Trend: {pred_sma_trend}
-- 30-Day Predicted Forecast Close: ${pred_final_pred:.2f} (predicted trend: {pred_direction})
-- Forecasting Model: {engine_name}
-"""
-            except Exception:
-                prediction_context = "No prediction indicators loaded."
             
             t = threading.Thread(
                 target=background_stream_worker,
