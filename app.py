@@ -13,7 +13,7 @@ from src.assistant.llm_client import LLMClient
 import threading
 import time
 
-def background_stream_worker(api_url, api_key, model, prompt, history, chat_list_ref, prediction_context=None):
+def background_stream_worker(api_url, api_key, model, prompt, history, chat_list_ref, prediction_context=None, is_mock=False):
     """
     Background worker thread to stream model outputs and update the session state in-place.
     Integrates with TradingRAG to retrieve relevant code template context.
@@ -24,6 +24,31 @@ def background_stream_worker(api_url, api_key, model, prompt, history, chat_list
     
     if chat_list_ref and len(chat_list_ref) > 0:
         chat_list_ref[-1]["sources"] = sources
+
+    if is_mock:
+        # Generate mock response using RAG sources
+        mock_response = "### 🤖 AI Quant-Coder (Offline Mock Mode)\n\n"
+        if sources:
+            mock_response += "Since the AI model is currently offline, I am displaying the direct code templates retrieved by our **TradingRAG** engine matching your prompt:\n\n"
+            for s in sources:
+                mock_response += f"📄 **Source Template: `{s['file']}`**\n"
+                mock_response += f"```python\n{s['code']}\n```\n\n"
+        else:
+            mock_response += "I couldn't find any direct match for your request in our database. Here is a basic Python script structure to help you get started:\n\n"
+            mock_response += "```python\n# Basic Trading Strategy Script Template\nimport pandas as pd\nimport numpy as np\n\ndef calculate_signals(data):\n    # Simple crossover logic placeholder\n    data['Signal'] = np.where(data['Close'] > data['Close'].shift(1), 1, -1)\n    return data\n```\n\n"
+        mock_response += "\n\n💡 *Tip: To enable live AI code generation and modifications, please go to the **System Configuration** tab in the navigation menu and enter your API base URL, Model ID, and API Token.*"
+        
+        # Stream it chunk-by-chunk to simulate real-time typing
+        chunk_size = 20  # characters per step
+        full_response = ""
+        for i in range(0, len(mock_response), chunk_size):
+            full_response += mock_response[i:i+chunk_size]
+            if chat_list_ref and len(chat_list_ref) > 0:
+                chat_list_ref[-1]["content"] = full_response
+            time.sleep(0.02)
+        if chat_list_ref and len(chat_list_ref) > 0:
+            chat_list_ref[-1]["status"] = "complete"
+        return
 
     llm = LLMClient(api_url=api_url, api_key=api_key, model=model)
     try:
@@ -190,6 +215,7 @@ if not connected:
     except:
         pass
 
+st.session_state.connected = connected
 if connected:
     st.sidebar.success(f"🟢 Connected: {st.session_state.llm_model}")
 else:
@@ -409,6 +435,8 @@ if nav_choice == "📈 Market Predictor":
         with right_panel:
             st.subheader("🤖 Open-Source Code Assistant")
             st.write("Generate and backtest trading code. (Syncs with dedicated chat page)")
+            if not st.session_state.get("connected", False):
+                st.info("💡 **Running in Offline Mock Mode.** The chatbot will stream matching RAG template files. To connect a live LLM (Ollama/vLLM/Groq), go to the **System Configuration** tab in the sidebar.")
             
             # Clear & preset options
             clear_dash, preset_dash = st.columns([1.5, 2.5])
@@ -509,7 +537,8 @@ if nav_choice == "📈 Market Predictor":
                         user_input_dash,
                         history_copy,
                         chat_list_ref,
-                        prediction_context
+                        prediction_context,
+                        not st.session_state.get("connected", False)
                     )
                 )
                 t.start()
@@ -536,6 +565,8 @@ elif nav_choice == "💬 AI Code Assistant":
             st.rerun()
             
     st.write("A full-screen interface modeled after Gemini. Optimized for large coding scripts.")
+    if not st.session_state.get("connected", False):
+        st.info("💡 **Running in Offline Mock Mode.** The chatbot will stream matching RAG template files. To connect a live LLM (Ollama/vLLM/Groq), go to the **System Configuration** tab in the sidebar.")
     show_chat_sidebar = st.session_state.show_chat_sidebar
     
     if show_chat_sidebar:
@@ -746,7 +777,8 @@ elif nav_choice == "💬 AI Code Assistant":
                     user_input_ded,
                     history_copy,
                     chat_list_ref,
-                    prediction_context
+                    prediction_context,
+                    not st.session_state.get("connected", False)
                 )
             )
             t.start()
