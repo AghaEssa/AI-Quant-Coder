@@ -169,7 +169,10 @@ st.sidebar.markdown("---")
 connected = False
 try:
     # 1. Try standard OpenAI-compatible /models endpoint
-    res = requests.get(f"{st.session_state.llm_url.rstrip('/')}/models", timeout=1.5)
+    headers = {}
+    if st.session_state.llm_key and st.session_state.llm_key != "no-key-required":
+        headers["Authorization"] = f"Bearer {st.session_state.llm_key}"
+    res = requests.get(f"{st.session_state.llm_url.rstrip('/')}/models", headers=headers, timeout=1.5)
     if res.status_code == 200:
         connected = True
 except:
@@ -805,7 +808,11 @@ elif nav_choice == "⚙️ System Configuration":
                 "messages": [{"role": "user", "content": "ping"}],
                 "max_tokens": 5
             }
-            res = requests.post(url, json=payload, timeout=8)
+            headers = {}
+            api_key = st.session_state.get('llm_key_input', st.session_state.llm_key)
+            if api_key and api_key != "no-key-required":
+                headers["Authorization"] = f"Bearer {api_key}"
+            res = requests.post(url, json=payload, headers=headers, timeout=8)
             if res.status_code == 200:
                 st.markdown(
                     f"""
