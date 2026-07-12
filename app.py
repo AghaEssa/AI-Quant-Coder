@@ -827,6 +827,26 @@ elif nav_choice == "⚙️ System Configuration":
         st.toast("System settings updated successfully!", icon="✅")
         st.rerun()
 
+    # Integration guidelines helper
+    with st.expander("💡 Quick Integration Guide (Groq & OpenRouter Credentials)", expanded=True):
+        st.markdown(
+            """
+            If you do not have a local Ollama server running, you can connect this app to a high-speed cloud provider using a free API Key:
+            
+            * **Groq Cloud (Recommended for extreme speed):**
+              * **API Base URL:** `https://api.groq.com/openai/v1`
+              * **Model ID:** `llama-3.3-70b-versatile`
+              * **API Token:** Generate a free key from the **[Groq Console](https://console.groq.com/)** (Settings -> API Keys).
+            
+            * **OpenRouter (Free Llama models):**
+              * **API Base URL:** `https://openrouter.ai/api/v1`
+              * **Model ID:** `meta-llama/llama-3.2-3b-instruct:free`
+              * **API Token:** Generate a free key from the **[OpenRouter Dashboard](https://openrouter.ai/keys)**.
+            
+            *Paste these credentials into the configuration fields above, click **Apply & Save Parameters**, and then run the diagnostics!*
+            """
+        )
+
     # Diagnostics panel
     st.markdown("### 🔍 Connection Diagnostic Tool")
     st.write("Test connection to the specified endpoint to ensure everything is set up correctly.")
@@ -980,6 +1000,36 @@ elif nav_choice == "ℹ️ About Project":
                 <h5 style="margin:0 0 8px 0; color:#10b981;">🔌 Server Ready</h5>
                 <p style="margin:0; font-size:13px; color:#94a3b8; line-height:1.5;">
                     Features native support to route API requests to remote high-throughput vLLM backends accelerated by AMD ROCm GPU servers.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+    st.write("")
+    st.subheader("👥 Hackathon Team Members")
+    team_col1, team_col2 = st.columns(2)
+    with team_col1:
+        st.markdown(
+            """
+            <div class="metric-card" style="text-align: center; padding: 20px;">
+                <h4 style="margin:0; color:#818cf8;">Agha Essa Khan</h4>
+                <p style="margin:5px 0 0 0; font-size:14px; color:#cbd5e1; font-weight:600;">Team Lead & Full-Stack Developer</p>
+                <p style="margin:8px 0 0 0; font-size:12px; color:#94a3b8; line-height:1.5;">
+                    Built the prediction system integration, database architecture, and RAG search index orchestration.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    with team_col2:
+        st.markdown(
+            """
+            <div class="metric-card" style="text-align: center; padding: 20px;">
+                <h4 style="margin:0; color:#10b981;">Misbah Ramzan</h4>
+                <p style="margin:5px 0 0 0; font-size:14px; color:#cbd5e1; font-weight:600;">Data Scientist & Quant Developer</p>
+                <p style="margin:8px 0 0 0; font-size:12px; color:#94a3b8; line-height:1.5;">
+                    Engineered the time-series ARIMA prediction engine, technical indicators calculations, and strategy backtesters.
                 </p>
             </div>
             """,
